@@ -9,19 +9,26 @@
 #import <Foundation/Foundation.h>
 
 @protocol APAudioPlayerDelegate;
-@interface APAudioPlayer : NSObject
+
+@protocol AVAudioPlayerProtocol <NSObject>
+@property (readonly) NSTimeInterval duration;
+@property (nonatomic, assign) float volume;
+@property (nonatomic, assign) NSTimeInterval currentTime;
+@property (nonatomic, assign) BOOL enableRate;
+@property (nonatomic, assign) float rate;
+@property (nonatomic, weak) id delegate;
+- (nullable instancetype)initWithContentsOfURL:(NSURL *)url error:(NSError **)outError;
+- (void)pause;
+- (void)play;
+- (void)stop;
+- (BOOL)isPlaying;
+@end
+
+@interface APAudioPlayer : NSObject <AVAudioPlayerProtocol>
 
 @property (nonatomic, weak) id <APAudioPlayerDelegate> delegate;
 
-/**
- *  Prepares player to play item
- *
- *  @param url      NSURL of the track
- *  @param autoplay BOOL is should play immidiately
- *
- *  @return BOOL. Represents success status
- */
-- (BOOL)loadItemWithURL:(NSURL *)url autoPlay:(BOOL)autoplay;
+- (nullable instancetype)initWithContentsOfURL:(NSURL *)url error:(NSError **)outError;
 
 /*
  Player interactions
@@ -34,13 +41,24 @@
 /*
  Player values
  */
-- (NSTimeInterval)duration;
+
+/* Represents duration */
+@property (readonly) NSTimeInterval duration;
 
 /* Represents current position 0..1 */
 @property (nonatomic, assign) CGFloat position;
 
 /* Represents current volume 0..1 */
-@property (nonatomic, assign) CGFloat volume;
+@property (nonatomic, assign) float volume;
+
+/* Represents current time */
+@property (nonatomic, assign) NSTimeInterval currentTime;
+
+/*  */
+@property (nonatomic, assign) BOOL enableRate;
+
+/*  */
+@property (nonatomic, assign) float rate;
 
 @end
 

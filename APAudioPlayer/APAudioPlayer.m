@@ -42,6 +42,20 @@ void CALLBACK ChannelEndedCallback(HSYNC handle, DWORD channel, DWORD data, void
 
 #pragma mark - Initialization
 
+- (nullable instancetype)initWithContentsOfURL:(NSURL *)url error:(NSError **)outError
+{
+    self = [self init];
+    if (self) {
+        int code = [self loadItemWithURL:url autoPlay:NO];
+        if (code == 0) {
+            *outError = nil;
+        } else {
+            *outError = [NSError errorWithDomain:@"APAudioPlayerErrorDomain" code:code userInfo:nil];
+        }
+    }
+    return self;
+}
+
 - (instancetype)init
 {
     NSNotificationCenter *notificationCenter = [NSNotificationCenter defaultCenter];
@@ -57,9 +71,7 @@ void CALLBACK ChannelEndedCallback(HSYNC handle, DWORD channel, DWORD data, void
         _notificationCenter = notificationCenter;
         
         //Load flac
-        extern void BASSFLACplugin, BASSWVplugin, BASSOPUSplugin;
-        BASS_PluginLoad(&BASSFLACplugin, 0);
-        BASS_PluginLoad(&BASSWVplugin, 0);
+        extern void BASSOPUSplugin;
         BASS_PluginLoad(&BASSOPUSplugin, 0);
         
         //BASS init
@@ -89,7 +101,7 @@ void CALLBACK ChannelEndedCallback(HSYNC handle, DWORD channel, DWORD data, void
 
 #pragma mark - Controls
 
-- (BOOL)loadItemWithURL:(NSURL *)url autoPlay:(BOOL)autoplay
+- (int)loadItemWithURL:(NSURL *)url autoPlay:(BOOL)autoplay
 {
     [self.audioSession setCategory:AVAudioSessionCategoryPlayback error: nil];
 	[self.audioSession setActive:YES error:nil];
@@ -100,7 +112,7 @@ void CALLBACK ChannelEndedCallback(HSYNC handle, DWORD channel, DWORD data, void
     //Free memory
     BASS_StreamFree(_channel);
     
-    _channel = BASS_StreamCreateFile(FALSE, [[url path] cStringUsingEncoding:NSUTF8StringEncoding], 0, 0, 0);
+    _channel = BASS_StreamCreateURL([[url absoluteString] cStringUsingEncoding:NSUTF8StringEncoding], 0, 0, NULL, 0);
     
     //Set callback
     BASS_ChannelSetSync(_channel, BASS_SYNC_END, 0, ChannelEndedCallback, (__bridge void *)self);
@@ -111,7 +123,7 @@ void CALLBACK ChannelEndedCallback(HSYNC handle, DWORD channel, DWORD data, void
     }
 
     int code = BASS_ErrorGetCode();
-    return code == 0;
+    return code;
 }
 
 - (void)pause
@@ -160,6 +172,10 @@ void CALLBACK ChannelEndedCallback(HSYNC handle, DWORD channel, DWORD data, void
     return position;
 }
 
+- (NSTimeInterval)currentTime {
+    return self.duration * self.position;
+}
+
 - (void)setPosition:(CGFloat)position
 {
     QWORD len = BASS_ChannelGetLength(_channel, BASS_POS_BYTE);
@@ -168,9 +184,21 @@ void CALLBACK ChannelEndedCallback(HSYNC handle, DWORD channel, DWORD data, void
     BASS_ChannelSetPosition(_channel, bytesPosition, BASS_POS_BYTE);
 }
 
-- (void)setVolume:(CGFloat)volume {
+- (void)setVolume:(float)volume {
     _volume = volume;
     BASS_SetConfig(BASS_CONFIG_GVOL_STREAM, volume * 10000.0);
+}
+
+- (void)setCurrentTime:(CGFloat)currentTime {
+    CGFloat position = currentTime / self.duration;
+    if (position >= 0.0 && position <= 1.0) {
+        [self setPosition:position];
+    }
+}
+
+- (void)setRate:(float)rate {
+    _rate = rate;
+    // BASS_ChannelSetAttribute(_channel, BASS_ATTRIB_FREQ, _rate * 48000);
 }
 
 #pragma mark - AudioSessionDelegate
